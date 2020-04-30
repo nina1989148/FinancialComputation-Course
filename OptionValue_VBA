@@ -1,0 +1,184 @@
+Function ND_plus(k, S0, r, q, SD, T) As Double
+
+Dim lnK As Double
+lnK = Application.WorksheetFunction.Ln(k)
+Dim lnS0 As Double
+lnS0 = Application.WorksheetFunction.Ln(S0)
+Dim var As Double
+var = SD ^ 2
+
+ND_plus = ((lnS0 / lnK) + (r - q + var / 2) * T) / (SD * T ^ 0.5)
+
+End Function
+Function ND_minus(k, S0, r, q, SD, T) As Double
+
+Dim lnK As Double
+lnK = Application.WorksheetFunction.Ln(k)
+Dim lnS0 As Double
+lnS0 = Application.WorksheetFunction.Ln(S0)
+Dim var As Double
+var = SD ^ 2
+
+ND_minus = ((lnS0 / lnK) + (r - q - var / 2) * T) / (SD * T ^ 0.5)
+
+End Function
+'傳回標準常態累積分配函數。ND~(0,1)
+Function ND(y) As Double
+
+ND = Application.WorksheetFunction.Norm_S_Dist(y, True)
+
+End Function
+Sub ND_interval(S0, r, q, SD, T, line, K1, K2, K3, K4, montiST)
+
+Dim lnS0 As Double
+lnS0 = Application.WorksheetFunction.Ln(S0)
+Dim var As Double
+var = SD ^ 2
+Dim sqt As Double
+sqt = T ^ 0.5
+Dim mean As Double
+mean = lnS0 + (r - q - var / 2) * T
+Dim StD As Double
+StD = SD * T ^ 0.5
+
+Dim s As Integer
+Dim lnST As Double
+Dim ST As Double
+
+Dim PF As Double
+
+For s = 1 To 10000
+    lnST = Application.WorksheetFunction.NormInv(Rnd(), mean, StD)
+    ST = Exp(lnST)
+    If ST <= K1 Or ST >= K4 Then
+        PF = 0
+    ElseIf ST > K1 And ST < K2 Then
+        PF = ST - K1
+    ElseIf ST >= K2 And ST <= K3 Then
+        PF = K2 - K1
+    Else
+        PF = (ST - K4) * (K2 - K1) / (K3 - K4)
+    End If
+    montiST(s - 1) = PF * Exp(-1 * r * T)
+Next s
+
+End Sub
+
+
+
+Function Avg_count() As Double
+
+Dim sumPF As Double
+sumPF = 0
+Dim c As Integer
+For c = 1 To 10000
+    sumPF = sumPF + Cells(c + 13, line)
+Next c
+Avg_count = sumPF / 10000
+End Function
+Sub 按鈕1_Click()
+'計算選擇權
+
+'宣告變數
+    Dim x As Integer
+    Dim S0, r, q, SD, T, i As Double
+
+    Dim K1, K2, K3, K4, K5 As Double
+    
+    Dim A1, A2, C1, C2 As Double
+    Dim A3, A4, C3, C4 As Double
+    
+    Dim payoffA, payoffB, payoffC As Double
+    Dim ST As Double
+
+'輸入值，註：type=1需輸入數值
+    S0 = Application.InputBox("請輸入現值S0", Type:=1)
+    Cells(1, 2).Value = S0
+    r = Application.InputBox("請輸入利率r", Type:=1)
+    Cells(2, 2).Value = r
+    q = Application.InputBox("請輸入股利q", Type:=1)
+    Cells(3, 2).Value = q
+    SD = Application.InputBox("請輸入標準差SD", Type:=1)
+    Cells(4, 2).Value = SD
+    T = Application.InputBox("請輸入到期期間T", Type:=1)
+    Cells(5, 2).Value = T
+    K1 = Application.InputBox("請輸入K1", Type:=1)
+    Cells(6, 2).Value = K1
+    K2 = Application.InputBox("請輸入K2", Type:=1)
+    Cells(7, 2).Value = K2
+    K3 = Application.InputBox("請輸入K3", Type:=1)
+    Cells(8, 2).Value = K3
+    K4 = Application.InputBox("請輸入K4", Type:=1)
+    Cells(9, 2).Value = K4
+
+    A1 = ND_plus(K1, S0, r, q, SD, T)
+    A2 = ND_plus(K2, S0, r, q, SD, T)
+    C1 = ND_plus(K3, S0, r, q, SD, T)
+    C2 = ND_plus(K4, S0, r, q, SD, T)
+        
+    A3 = ND_minus(K1, S0, r, q, SD, T)
+    A4 = ND_minus(K2, S0, r, q, SD, T)
+    C3 = ND_minus(K3, S0, r, q, SD, T)
+    C4 = ND_minus(K4, S0, r, q, SD, T)
+
+    payoffA = S0 * Exp(r * T - q * T) * (ND(A1) - ND(A2)) - K1 * (ND(A3) - ND(A4))
+    payoffB = (K2 - K1) * (ND(A4) - ND(C3))
+    payoffC = K4 * ((K2 - K1) / (K4 - K3)) * (ND(C3) - ND(C4)) - ((K2 - K1) / (K4 - K3)) * S0 * Exp(r * T - q * T) * (ND(C3) - ND(C4))
+
+    ST = Exp(-1 * r * T) * (payoffA + payoffB + payoffC)
+    Cells(12, 2) = ST
+    MsgBox ("Option Value = " & ST)
+End Sub
+Sub confidenceinterval_按鈕1_Click()
+'計算信賴區間
+    Dim montiST(19) As Double
+    Dim monti(9999) As Double
+    Dim z As Integer
+    Dim S0, r, q, SD, T, i As Double
+   
+  
+    Dim K1, K2, K3, K4, K5 As Double
+    Dim AVG As Double
+    Dim sumPF, s1 As Double
+    sumPF = 0
+
+    S0 = Application.InputBox("請輸入現值S0", Type:=1)
+    Cells(1, 2).Value = S0
+    r = Application.InputBox("請輸入利率r", Type:=1)
+    Cells(2, 2).Value = r
+    q = Application.InputBox("請輸入股利q", Type:=1)
+    Cells(3, 2).Value = q
+    SD = Application.InputBox("請輸入標準差SD", Type:=1)
+    Cells(4, 2).Value = SD
+    T = Application.InputBox("請輸入到期期間T", Type:=1)
+    Cells(5, 2).Value = T
+    K1 = Application.InputBox("請輸入K1", Type:=1)
+    Cells(6, 2).Value = K1
+    K2 = Application.InputBox("請輸入K2", Type:=1)
+    Cells(7, 2).Value = K2
+    K3 = Application.InputBox("請輸入K3", Type:=1)
+    Cells(8, 2).Value = K3
+    K4 = Application.InputBox("請輸入K4", Type:=1)
+    Cells(9, 2).Value = K4
+
+    S0 = Cells(1, 2).Value
+    r = Cells(2, 2).Value
+    q = Cells(3, 2).Value
+    SD = Cells(4, 2).Value
+    T = Cells(5, 2).Value
+    K1 = Cells(6, 2).Value
+    K2 = Cells(7, 2).Value
+    K3 = Cells(8, 2).Value
+    K4 = Cells(9, 2).Value
+    
+    For z = 1 To 20
+        Call ND_interval(S0, r, q, SD, T, z + 1, K1, K2, K3, K4, monti)
+        AVG = Application.WorksheetFunction.Average(monti)
+        montiST(z - 1) = AVG
+    Next z
+    Cells(12, 2) = Application.WorksheetFunction.Average(montiST)
+    Cells(13, 2) = Application.WorksheetFunction.StDev(montiST)
+    Cells(15, 2) = Cells(12, 2).Value - 2 * Cells(13, 2).Value
+    Cells(16, 2) = Cells(12, 2).Value + 2 * Cells(13, 2).Value
+   
+End Sub
